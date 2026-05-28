@@ -1,0 +1,5 @@
+method,architecture,num_sources,num_layers,layer_zs,target_x,target_y,target_z
+Rule_triple_center,Rule_triple_center_triple_layer_staggered_center,48,3,-0.45;0;0.45,0.0,0.0,0.0
+CRLB_Aopt,CRLB_Aopt_cand_0216,48,2,-0.5762;0.5762,0.2287404369586997,-0.18299234956695976,0.13724426217521982
+EIG_only,EIG_only_cand_0216,48,2,-0.5762;0.5762,0.2287404369586997,-0.18299234956695976,0.13724426217521982
+EIG_plus_dprime,EIG_plus_dprime_cand_0236,48,2,-0.4103;0.4103,0.051908340255571166,-0.04152667220445694,0.031145004153342697

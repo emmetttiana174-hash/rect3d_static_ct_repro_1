@@ -1,0 +1,30 @@
+{
+  "timestamp": "2026-05-23T22:38:27",
+  "python": "3.13.13",
+  "astra_version": "2.4.1",
+  "config": {
+    "name": "rect3d_rule_baselines_quick",
+    "detector_radius": "1.5",
+    "detector_height": "1.6",
+    "volume_side_xy": "1.0",
+    "volume_height": "1.0",
+    "nx": "32",
+    "ny": "32",
+    "nz": "32",
+    "detector_cols": "48",
+    "detector_rows": "32",
+    "source_count_total": "48",
+    "source_ring_zs_single": "(0.0,)",
+    "source_ring_zs_double": "(-0.32, 0.32)",
+    "source_ring_zs_triple": "(-0.45, 0.0, 0.45)",
+    "roi_center": "(0.25, -0.2, 0.15)",
+    "cone_angle_deg": "35.0",
+    "j0_total": "480000000.0",
+    "poisson_scale": "1.0",
+    "sirt_iterations": "40",
+    "seed": "20260523",
+    "output_dir": "D:\\Astra-toolbox\\astra-toolbox-2.4.1-python313-win-x64\\astra-2.4.1\\rect3d_static_ct_repro\\outputs\\experiment01_rule_baselines",
+    "use_cuda_3d": "True"
+  },
+  "metric_rows": 8
+}
