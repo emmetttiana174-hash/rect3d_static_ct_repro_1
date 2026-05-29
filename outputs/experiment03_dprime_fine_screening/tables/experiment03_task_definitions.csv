@@ -1,4 +1,5 @@
 task,description
 center_small_target,中心小球形低对比目标检测
 eccentric_roi_target,偏心 ROI 小球形低对比目标检测
+offroi_edge_target,EIG 先验未包含的非预设 ROI 三维边缘小目标检测
 material_contrast,局部材料/低对比差异判别任务

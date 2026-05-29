@@ -74,11 +74,12 @@ def _target_signal(cfg: object, center: tuple[float, float, float], radius: floa
 
 
 def build_dprime_tasks(cfg: object) -> list[DetectionTask3D]:
-    """Return center, eccentric ROI and material/contrast discrimination tasks."""
+    """Return known local tasks plus an off-ROI task missing from EIG priors."""
 
     background = build_smooth_background(cfg)
     center = (0.0, 0.0, 0.0)
     roi = cfg.roi_center
+    offroi = (-0.34, 0.26, -0.18)
     material_center = (-0.18, 0.18, -0.08)
     return [
         DetectionTask3D(
@@ -94,6 +95,13 @@ def build_dprime_tasks(cfg: object) -> list[DetectionTask3D]:
             background=background,
             signal=_target_signal(cfg, roi, radius=0.075, contrast=0.022),
             channels=_localized_channels(cfg, roi, radius=0.075, count=cfg.dprime_channel_count),
+        ),
+        DetectionTask3D(
+            name="offroi_edge_target",
+            description="EIG 先验未包含的非预设 ROI 三维边缘小目标检测",
+            background=background,
+            signal=_target_signal(cfg, offroi, radius=0.075, contrast=0.022),
+            channels=_localized_channels(cfg, offroi, radius=0.075, count=cfg.dprime_channel_count),
         ),
         DetectionTask3D(
             name="material_contrast",

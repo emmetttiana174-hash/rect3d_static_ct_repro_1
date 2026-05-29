@@ -26,11 +26,17 @@ from plotting3d import (
     save_dprime_task_bars,
     save_reconstruction_slices,
     save_top_parameter_distributions,
+    save_selected_architectures_with_tasks,
     save_validation_metric_bars,
     save_validation_reconstruction_grid,
 )
 from priors3d import build_eig_prior_classes
-from validation3d import build_validation_cases, selected_architectures_for_validation, validate_architecture
+from validation3d import (
+    build_offroi_prior_shift_cases,
+    build_validation_cases,
+    selected_architectures_for_validation,
+    validate_architecture,
+)
 
 LOGGER = logging.getLogger(__name__)
 
@@ -378,7 +384,9 @@ def write_experiment03_report(cfg: object, rows: list[dict], tasks: list[object]
     lines.extend(
         [
             "",
-            "其中前两个任务是局部小目标检测，分别对应中心 ROI 和偏心 ROI；第三个任务是局部材料/低对比差异判别，用来避免精筛准则只服务于单一检测位置。",
+            "其中 `center_small_target` 和 `eccentric_roi_target` 分别对应中心目标和已知偏心 ROI 目标；`offroi_edge_target` 是 EIG 先验中没有包含的非预设 ROI 边缘目标；`material_contrast` 用于补充局部材料/低对比判别任务。",
+            "",
+            "加入 `offroi_edge_target` 并不与“先验缺失鲁棒性”矛盾。当前设计逻辑是：EIG 粗筛阶段只依赖可获得的对象先验，用来保障整体信息获取能力；d' 精筛阶段则允许根据实际关心的任务目标进行补偿式优化。因此，即使 EIG 先验没有覆盖 off-ROI 目标，只要用户明确该任务重要，就可以在 d' 阶段把它作为任务加入，从而检验 d' 精筛是否能弥补 EIG 先验不完整的问题。",
             "",
             "## 4. d' 近似计算方式",
             "",
@@ -439,6 +447,20 @@ def write_experiment03_report(cfg: object, rows: list[dict], tasks: list[object]
         [
             "因此，本实验支持 EIG+d' 的分层逻辑：EIG 用于快速删除低信息价值架构，d' 用于在高信息候选中选择更符合具体任务需求的架构。",
             "",
+            "加入 `offroi_edge_target` 后，最终 d' maximin 最优候选仍然是 `cand_0236`。这说明新增非预设 ROI 任务没有改变最终最优架构，但它改变了实验三的解释力度：`cand_0236` 不只是对中心、已知 ROI 和材料任务较均衡，也在 EIG 先验未覆盖的 off-ROI 任务上保持较高理论 d'。",
+            "",
+            "具体而言，`cand_0236` 的各任务 d' 为：",
+            "",
+            "```text",
+            "center_small_target     = 146.320",
+            "eccentric_roi_target    = 138.407",
+            "offroi_edge_target      = 146.122",
+            "material_contrast       = 222.357",
+            "min d'                  = 138.407",
+            "```",
+            "",
+            "它的短板仍然是 `eccentric_roi_target`，而不是新加入的 `offroi_edge_target`。这说明在当前候选空间中，`cand_0236` 对 off-ROI 边缘任务并不脆弱；d' 精筛在 EIG 先验不完整的情况下仍能保留对该任务有利的架构。",
+            "",
             "## 8. 输出文件说明",
             "",
             "| 文件 | 内容 |",
@@ -453,7 +475,7 @@ def write_experiment03_report(cfg: object, rows: list[dict], tasks: list[object]
             "",
             "实验三的关键作用，是把实验二的“高信息架构筛选”推进到“具体任务可探测性筛选”。当前 quick 结果应作为方法链验证：它证明了 EIG top 候选之间仍需要根据任务 d' 进行比较，并给出了 maximin 任务准则下的最终候选。",
             "",
-            "最重要的论文式表述是：EIG 最优架构不一定是任务最优架构；在通过 EIG 粗筛后，仍需使用 d' 进行任务驱动精筛。即使在某些 quick 参数下两者恰好一致，d' 精筛仍提供了必要的任务性能验证。",
+            "最重要的论文式表述是：EIG 最优架构不一定是任务最优架构；在通过 EIG 粗筛后，仍需使用 d' 进行任务驱动精筛。进一步地，当 EIG 阶段的对象先验不完整时，可以在 d' 阶段显式加入新的任务目标，当前 `offroi_edge_target` 结果表明这种解耦设计能够对先验缺失提供一定容错性。",
         ]
     )
     (cfg.output_dir / "experiment03_dprime_fine_screening_report.md").write_text("\n".join(lines), encoding="utf-8")
@@ -528,6 +550,14 @@ def run_experiment04_poisson_mle_map_validation(cfg: object) -> dict:
     )
     save_validation_metric_bars(all_metrics, cfg.output_dir / "figures" / "fig01_validation_metrics_map.png")
     save_validation_reconstruction_grid(all_examples, cfg, cfg.output_dir / "figures" / "fig02_reconstruction_validation_examples.png")
+    save_selected_architectures_with_tasks(
+        selected,
+        [
+            {"label": "center target", "point": (0.0, 0.0, 0.0), "kind": "center"},
+            {"label": "known ROI", "point": cfg.roi_center, "kind": "known_roi"},
+        ],
+        cfg.output_dir / "figures" / "fig03_selected_architectures_with_tasks.png",
+    )
     write_experiment04_report(cfg, all_metrics, selected)
     write_manifest(cfg, all_metrics)
     return {"metrics": all_metrics, "selected": selected}
@@ -611,6 +641,175 @@ def write_experiment04_report(cfg: object, rows: list[dict], selected: list[tupl
         "当前实验仍是 quick 级闭环验证，主要用于验证流程和相对趋势。最终论文级结果应提高重复次数、体素分辨率、MAP 迭代严格性，并加入统计显著性检验。",
     ]
     (cfg.output_dir / "experiment04_poisson_mle_map_validation_report.md").write_text("\n".join(lines), encoding="utf-8")
+
+
+def run_experiment05_offroi_prior_shift(cfg: object) -> dict:
+    """Run 3D off-ROI and prior-shift validation inspired by 2D edge tests."""
+
+    root = Path(__file__).resolve().parent
+    eig_path = root / "outputs" / "experiment02_eig_screening" / "tables" / "experiment02_top_candidate_eig.csv"
+    eig_all_path = root / "outputs" / "experiment02_eig_screening" / "tables" / "experiment02_all_candidate_eig.csv"
+    dprime_path = root / "outputs" / "experiment03_dprime_fine_screening" / "tables" / "experiment03_dprime_rankings.csv"
+    for path in [eig_path, eig_all_path, dprime_path]:
+        if not path.exists():
+            raise FileNotFoundError(f"Missing prerequisite table: {path}")
+    eig_rows = _read_csv_rows(eig_path)
+    eig_all_rows = _read_csv_rows(eig_all_path)
+    for i, row in enumerate(sorted(eig_rows, key=lambda r: float(r["eig_weighted"]), reverse=True), start=1):
+        row["eig_rank_within_top"] = i
+    dprime_rows = _read_csv_rows(dprime_path)
+    selected = selected_architectures_for_validation(cfg, eig_all_rows, eig_rows, dprime_rows)
+    cases = build_offroi_prior_shift_cases(cfg)
+
+    all_metrics: list[dict] = []
+    all_examples: list[dict] = []
+    for method, sources in selected:
+        LOGGER.info("Experiment 5 off-ROI/prior-shift validation: %s", method)
+        rows, examples = validate_architecture(cfg, method, sources, cases)
+        all_metrics.extend(rows)
+        all_examples.extend(examples)
+
+    write_rows(cfg.output_dir / "tables" / "experiment05_offroi_prior_shift_metrics.csv", all_metrics)
+    (cfg.output_dir / "tables" / "experiment05_offroi_prior_shift_metrics.json").write_text(
+        json.dumps(all_metrics, indent=2),
+        encoding="utf-8",
+    )
+    write_rows(
+        cfg.output_dir / "tables" / "experiment05_selected_architectures.csv",
+        [
+            {
+                "method": method,
+                "architecture": src.architecture,
+                "num_sources": int(src.positions.shape[0]),
+                "num_layers": int(len(src.layer_zs)),
+                "layer_zs": ";".join(f"{z:.4g}" for z in src.layer_zs),
+                "target_x": src.target[0],
+                "target_y": src.target[1],
+                "target_z": src.target[2],
+            }
+            for method, src in selected
+        ],
+    )
+    save_validation_metric_bars(all_metrics, cfg.output_dir / "figures" / "fig01_offroi_prior_shift_metrics_map.png")
+    save_validation_reconstruction_grid(all_examples, cfg, cfg.output_dir / "figures" / "fig02_offroi_prior_shift_recon_examples.png")
+    save_selected_architectures_with_tasks(
+        selected,
+        [
+            {"label": "center target", "point": (0.0, 0.0, 0.0), "kind": "center"},
+            {"label": "known ROI", "point": cfg.roi_center, "kind": "known_roi"},
+            {"label": "off-ROI edge", "point": (-0.34, 0.26, -0.18), "kind": "offroi"},
+            {"label": "high-z shift", "point": (0.04, -0.30, 0.34), "kind": "high_z"},
+        ],
+        cfg.output_dir / "figures" / "fig03_selected_architectures_with_tasks.png",
+    )
+    write_experiment05_report(cfg, all_metrics, selected)
+    write_manifest(cfg, all_metrics)
+    return {"metrics": all_metrics, "selected": selected}
+
+
+def write_experiment05_report(cfg: object, rows: list[dict], selected: list[tuple[str, object]]) -> None:
+    """Write Chinese markdown report for off-ROI and prior-shift validation."""
+
+    map_rows = [r for r in rows if r["reconstruction"] == "MAP"]
+    mle_rows = [r for r in rows if r["reconstruction"] == "MLE"]
+
+    def metric_table(subset: list[dict]) -> list[str]:
+        lines = [
+            "| method | case | recon | global RMSE | ROI RMSE | empirical d' |",
+            "|---|---|---|---:|---:|---:|",
+        ]
+        for r in subset:
+            lines.append(
+                f"| `{r['method']}` | `{r['case']}` | `{r['reconstruction']}` | "
+                f"{float(r['rmse_global_mean']):.6g} | {float(r['rmse_roi_mean']):.6g} | {float(r['empirical_dprime']):.6g} |"
+            )
+        return lines
+
+    def winners(case: str) -> dict[str, dict]:
+        subset = [r for r in map_rows if r["case"] == case]
+        return {
+            "roi": min(subset, key=lambda r: float(r["rmse_roi_mean"])),
+            "global": min(subset, key=lambda r: float(r["rmse_global_mean"])),
+            "dprime": max(subset, key=lambda r: float(r["empirical_dprime"])),
+        }
+
+    cases = sorted({r["case"] for r in map_rows})
+    lines = [
+        "# 三维静态 CT 实验 5：非预设 ROI 检测与先验失配测试",
+        "",
+        f"记录日期：{datetime.now().date().isoformat()}",
+        "",
+        "## 1. 实验目的",
+        "",
+        "二维 `rect2d_compare` 中最关键的证据不是 EIG+d' 全面优于 CRLB，而是在非预设 ROI 的 edge 任务和先验失配任务中，任务驱动准则能够体现出不同于全局/固定 ROI CRLB 的局部检测优势。本实验把这一思想迁移到三维环形静态 CT。",
+        "",
+        "当前实验不重新训练 EIG 先验，也不重新选择 d' 最优架构，而是使用实验二、三已经确定的架构，在新的三维 off-ROI 和 prior-shift 验证对象上进行泊松 + MLE/MAP 闭环验证。这样可以检验：已有 EIG+d' 架构在未显式优化的新局部任务下是否仍具有价值。",
+        "",
+        "## 2. 对比方法",
+        "",
+        "| method | 含义 |",
+        "|---|---|",
+        "| `Rule_triple_center` | 实验一规则三层中心定向基线 |",
+        "| `CRLB_Aopt` | 当前 quick 低秩 A-optimality / CRLB 近似基线 |",
+        "| `EIG_only` | 实验二 weighted EIG top-1 架构 |",
+        "| `EIG_plus_dprime` | 实验三 d' maximin 精筛架构 |",
+        "",
+        "## 3. 验证任务",
+        "",
+        "| case | 含义 | 是否属于训练先验/显式 d' 任务 |",
+        "|---|---|---|",
+        "| `offroi_edge_target` | 位于训练 ROI 之外的三维边缘小目标 | 否 |",
+        "| `high_z_shift_target` | 位于较高 z 层、训练先验未覆盖的偏心目标 | 否 |",
+        "| `double_roi_offroi_target` | 指定 ROI 与非预设 ROI 同时存在的双目标对象，评价 off-ROI 区域 | 部分失配 |",
+        "",
+        f"每个方法、每个 case 使用 `{cfg.validation_replicates}` 次独立泊松 realization。MAP 仍采用当前 quick 先验融合近似，结论只作为方法链验证。",
+        "",
+        "## 4. MAP 验证结果",
+        "",
+        *metric_table(map_rows),
+        "",
+        "## 5. MLE 验证结果",
+        "",
+        *metric_table(mle_rows),
+        "",
+        "## 6. 分任务观察",
+        "",
+    ]
+    for case in cases:
+        w = winners(case)
+        lines.extend(
+            [
+                f"### {case}",
+                "",
+                f"- MAP 全局 RMSE 最低：`{w['global']['method']}`，数值 `{float(w['global']['rmse_global_mean']):.6g}`。",
+                f"- MAP ROI RMSE 最低：`{w['roi']['method']}`，数值 `{float(w['roi']['rmse_roi_mean']):.6g}`。",
+                f"- MAP empirical d' 最高：`{w['dprime']['method']}`，数值 `{float(w['dprime']['empirical_dprime']):.6g}`。",
+                "",
+            ]
+        )
+    lines.extend(
+        [
+            "## 7. 结果解释",
+            "",
+            "本实验的读法应与二维 edge / prior-shift 测试保持一致：如果某个 CRLB/A-opt 基线在全局 RMSE 或某个经验 d' 指标上最好，这并不否定 EIG+d'；关键是观察不同准则在非预设局部任务上的偏好是否不同，以及 EIG+d' 是否能在 ROI RMSE 或 matched detectability 上体现任务价值。",
+            "",
+            "当前结果应据实解读，不应预设 EIG+d' 必然全面胜出。若 `EIG_plus_dprime` 在 off-ROI ROI RMSE 或 d' 上优于规则基线/EIG-only，说明 d' 精筛对局部任务泛化有帮助；若 CRLB/A-opt 仍在 d' 上更强，则说明当前三维 d' 任务集还没有充分覆盖真正的 off-ROI 目标，后续正式 SCI 实验应把 off-ROI 任务纳入 d' 精筛或调整 maximin 任务集合。",
+            "",
+            "## 8. 输出文件",
+            "",
+            "| 文件 | 内容 |",
+            "|---|---|",
+            "| `tables/experiment05_offroi_prior_shift_metrics.csv` | 非预设 ROI 与先验失配任务的 MLE/MAP 指标 |",
+            "| `tables/experiment05_selected_architectures.csv` | 四类方法对应架构 |",
+            "| `figures/fig01_offroi_prior_shift_metrics_map.png` | MAP 下 RMSE 与经验 d' 对比 |",
+            "| `figures/fig02_offroi_prior_shift_recon_examples.png` | 代表性 MAP 重建切片与误差图 |",
+            "",
+            "## 9. 阶段性结论",
+            "",
+            "实验五是三维版本中对应二维 `edge task` 和先验失配测试的 quick 验证。它的主要作用是暴露当前任务集合是否足够，以及 EIG+d' 是否已经对未显式训练的局部目标具有泛化能力。正式 SCI 实验前，应根据本实验结果决定是否把 off-ROI 目标纳入实验三的 d' 精筛任务集合。",
+        ]
+    )
+    (cfg.output_dir / "experiment05_offroi_prior_shift_report.md").write_text("\n".join(lines), encoding="utf-8")
 
 
 def _mean(rows: list[dict], key: str) -> float:

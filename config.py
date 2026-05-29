@@ -129,6 +129,26 @@ def make_experiment04_config() -> Rect3DConfig:
     )
 
 
+def make_experiment05_config() -> Rect3DConfig:
+    """Return config for off-ROI and prior-shift 3D validation."""
+
+    return Rect3DConfig(
+        name="rect3d_offroi_prior_shift_quick",
+        output_dir=PROJECT_ROOT / "outputs" / "experiment05_offroi_prior_shift",
+        detector_cols=32,
+        detector_rows=24,
+        eig_candidate_count=240,
+        eig_top_fraction=0.10,
+        eig_probe_rank=24,
+        dprime_channel_count=12,
+        dprime_regularization_beta=2.5e4,
+        crlb_probe_rank=8,
+        validation_replicates=6,
+        sirt_iterations=25,
+        map_prior_strength=0.18,
+    )
+
+
 def ensure_dirs(cfg: Rect3DConfig) -> None:
     """Create all output directories used by the experiment."""
 

@@ -56,6 +56,40 @@ def build_validation_cases(cfg: object) -> list[ValidationCase3D]:
     ]
 
 
+def build_offroi_prior_shift_cases(cfg: object) -> list[ValidationCase3D]:
+    """Return 3D off-ROI and prior-shift validation cases."""
+
+    background = build_smooth_background(cfg)
+    offroi_center = (-0.34, 0.26, -0.18)
+    high_z_center = (0.04, -0.30, 0.34)
+    double_signal = _signal(cfg, cfg.roi_center, radius=0.07, contrast=0.019) + _signal(
+        cfg, offroi_center, radius=0.07, contrast=0.019
+    )
+    return [
+        ValidationCase3D(
+            name="offroi_edge_target",
+            description="非预设 ROI 的三维边缘低对比小目标",
+            background=background,
+            signal=_signal(cfg, offroi_center, radius=0.075, contrast=0.022),
+            roi=sphere_mask(cfg, offroi_center, 0.13),
+        ),
+        ValidationCase3D(
+            name="high_z_shift_target",
+            description="训练先验未覆盖的高 z 偏心小目标",
+            background=background,
+            signal=_signal(cfg, high_z_center, radius=0.075, contrast=0.022),
+            roi=sphere_mask(cfg, high_z_center, 0.13),
+        ),
+        ValidationCase3D(
+            name="double_roi_offroi_target",
+            description="指定 ROI 与非预设 ROI 同时存在的双目标先验失配对象",
+            background=background,
+            signal=double_signal.astype(np.float32),
+            roi=sphere_mask(cfg, offroi_center, 0.13),
+        ),
+    ]
+
+
 def approximate_map_reconstruction(cfg: object, mle_recon: np.ndarray, prior_mean: np.ndarray) -> np.ndarray:
     """Lightweight MAP-style shrinkage for quick validation."""
 

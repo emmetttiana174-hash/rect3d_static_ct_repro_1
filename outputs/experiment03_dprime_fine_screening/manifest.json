@@ -1,5 +1,5 @@
 {
-  "timestamp": "2026-05-26T21:38:30",
+  "timestamp": "2026-05-29T23:10:16",
   "python": "3.13.13",
   "astra_version": "2.4.1",
   "config": {
@@ -32,7 +32,10 @@
     "eig_prior_var_background": "2.5e-06",
     "eig_prior_var_target": "1e-05",
     "dprime_channel_count": "12",
-    "dprime_regularization_beta": "25000.0"
+    "dprime_regularization_beta": "25000.0",
+    "crlb_probe_rank": "8",
+    "validation_replicates": "5",
+    "map_prior_strength": "0.18"
   },
   "metric_rows": 24
 }

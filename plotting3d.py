@@ -236,3 +236,67 @@ def save_validation_reconstruction_grid(examples: list[dict], cfg: object, path:
         axes[row + 1, 0].set_ylabel("abs error", fontsize=9)
     fig.savefig(path, dpi=180)
     plt.close(fig)
+
+
+def save_selected_architectures_with_tasks(
+    sources_by_method: list[tuple[str, object]],
+    task_points: list[dict],
+    path: Path,
+) -> None:
+    """Save selected source geometries with task locations marked."""
+
+    n = len(sources_by_method)
+    fig, axes = plt.subplots(2, n, figsize=(4.4 * n, 9.6), constrained_layout=False)
+    axes = np.asarray(axes).reshape(2, n)
+    colors = {
+        "center": "black",
+        "known_roi": "tab:red",
+        "offroi": "tab:purple",
+        "high_z": "tab:green",
+        "material": "tab:orange",
+    }
+    markers = {
+        "center": "x",
+        "known_roi": "o",
+        "offroi": "D",
+        "high_z": "^",
+        "material": "s",
+    }
+    for col, (method, srcs) in enumerate(sources_by_method):
+        ax = axes[0, col]
+        ax.scatter(srcs.positions[:, 0], srcs.positions[:, 1], s=16, c="tab:blue", alpha=0.78, label="sources")
+        for task in task_points:
+            x, y, z = task["point"]
+            kind = task.get("kind", "center")
+            ax.scatter([x], [y], c=colors.get(kind, "0.2"), marker=markers.get(kind, "o"), s=70, label=task["label"])
+        ax.set_title(method)
+        ax.set_xlabel("x")
+        ax.set_ylabel("y")
+        ax.set_aspect("equal")
+        ax.grid(True, alpha=0.25)
+
+        ax2 = axes[1, col]
+        angles = np.degrees(np.arctan2(srcs.positions[:, 1], srcs.positions[:, 0]))
+        ax2.scatter(angles, srcs.positions[:, 2], s=16, c="tab:blue", alpha=0.78)
+        for task in task_points:
+            x, y, z = task["point"]
+            angle = np.degrees(np.arctan2(y, x))
+            kind = task.get("kind", "center")
+            ax2.scatter([angle], [z], c=colors.get(kind, "0.2"), marker=markers.get(kind, "o"), s=70)
+        ax2.set_xlabel("azimuth angle (deg)")
+        ax2.set_ylabel("z")
+        ax2.grid(True, alpha=0.25)
+    handles, labels = axes[0, 0].get_legend_handles_labels()
+    by_label = dict(zip(labels, handles, strict=False))
+    fig.subplots_adjust(left=0.055, right=0.985, top=0.90, bottom=0.18, wspace=0.24, hspace=0.30)
+    fig.legend(
+        by_label.values(),
+        by_label.keys(),
+        loc="lower center",
+        bbox_to_anchor=(0.5, 0.035),
+        ncol=min(6, len(by_label)),
+        fontsize=9,
+        frameon=True,
+    )
+    fig.savefig(path, dpi=180)
+    plt.close(fig)

@@ -1,21 +1,12 @@
 # 三维静态 CT 光源展布实验 4：泊松 + MLE/MAP 最终验证
 
-记录日期：2026-05-28
+记录日期：2026-05-29
 
 ## 1. 实验目的
 
 实验一到实验三分别建立了规则几何基线、EIG 粗筛和 d' 任务精筛。但这些仍主要是设计准则层面的排序。实验四的作用，是在真实泊松 transmission 投影和重建流程下检查这些准则选出的架构是否仍然具有任务优势。
 
 这组实验与参考 CRLB 方法中使用 MLE 验证 CRLB 可达性的作用类似：它不是再定义一个新的设计准则，而是用带噪投影和重建闭环检验前面选出的设计是否真正有效。
-
-需要注意的是，本实验的目的不是证明 `EIG_plus_dprime` 在所有指标、所有任务上全面优于 CRLB / A-optimality。二维 `rect2d_compare` 对比实验已经表明，CRLB 类方法本身是合理且强有力的基线：当任务与其优化目标一致时，例如指定 ROI 方差或全局平均方差，它可能表现最好。本研究真正要验证的是：
-
-```text
-CRLB / A-optimality 的最优性依赖其评价目标；
-全局或固定 ROI 方差最优，不一定等价于所有局部检测任务最优。
-```
-
-因此，实验四的正确读法应是：观察不同准则在真实泊松重建闭环下呈现怎样的任务偏好，而不是期待 EIG+d' 在全局 RMSE、ROI RMSE 和经验 d' 上同时全部第一。
 
 ## 2. 对比架构
 
@@ -27,8 +18,6 @@ CRLB / A-optimality 的最优性依赖其评价目标；
 | `EIG_plus_dprime` | `EIG_plus_dprime_cand_0236` | 2 | `-0.4103;0.4103` | `(0.0519, -0.0415, 0.0311)` |
 
 `CRLB_Aopt` 是当前 quick 实现中的低秩 A-optimality 近似基线，用随机 probe 子空间估计全局方差准则，代表参考文献中 CRLB / A-optimality 思路。后续论文级实验可替换为更高秩或显式 Fisher 矩阵版本。
-
-当前 quick 结果中，`CRLB_Aopt` 与 `EIG_only` 都选到了 `cand_0216`。这并不表示两种准则在理论上等价，而是说明在当前低秩 probe、候选空间和先验设置下，A-optimality 近似基线与 weighted EIG top-1 对同一个两层大 z-extent 架构产生了共同偏好。这个现象本身也值得记录：强全局信息准则和 EIG 粗筛可能会在某些候选空间中收敛到相同架构，但 d' 精筛仍把最终候选改为 `cand_0236`。
 
 ## 3. 验证对象与重建
 
@@ -75,30 +64,6 @@ CRLB / A-optimality 的最优性依赖其评价目标；
 
 在当前 quick MAP 验证中，偏心 ROI case 的最低 ROI RMSE 来自 `EIG_plus_dprime`，数值为 `0.00486161`；偏心 ROI case 的最高经验 d' 来自 `CRLB_Aopt`，数值为 `189.596`。
 
-更具体地说：
-
-1. 在两个验证对象上，`EIG_plus_dprime` 的 MAP ROI RMSE 都是当前四类方法中最低的：
-   - `center_target`: `0.00472651`
-   - `eccentric_roi_target`: `0.00486161`
-2. 在全局 RMSE 上，`Rule_triple_center` 仍然最优，说明规则三层中心环在当前 quick SIRT/MAP 设置下具有较强的全局平滑重建优势。
-3. 在经验 d' 上，`CRLB_Aopt` 当前最高：
-   - `center_target`: `271.433`
-   - `eccentric_roi_target`: `189.596`
-4. `EIG_plus_dprime` 在经验 d' 上没有超过 `CRLB_Aopt`，但在偏心 ROI case 中明显高于 `Rule_triple_center` 和 `EIG_only`：
-   - `Rule_triple_center`: `80.0772`
-   - `EIG_only`: `111.525`
-   - `EIG_plus_dprime`: `160.311`
-   - `CRLB_Aopt`: `189.596`
-
-因此，当前 quick 闭环验证支持一个较谨慎的结论：`EIG_plus_dprime` 在真实泊松重建条件下表现出更好的 ROI 局部误差控制，尤其在偏心 ROI 目标上优于规则基线和 EIG-only；但当前 quick 经验 d' 最高者仍是 `CRLB_Aopt`，因此还不能宣称 EIG+d' 在所有任务 detectability 指标上已经全面优于 CRLB/A-optimality 基线。
-
-这个结果并不否定实验三的设计准则结论，而是提示实验四的重建验证仍受当前 quick MLE/MAP 近似、重复次数、经验 d' 估计方差、通道模板和 CRLB probe 近似影响。后续论文级实验应增加泊松重复次数、使用严格 MAP 迭代和配对统计检验，进一步验证 `EIG_plus_dprime` 的任务 detectability 优势是否稳定。
-
-结合二维 `rect2d_compare` 的经验，当前三维实验四更合理的阶段性解释是：
-
-1. CRLB/A-optimality 不应被简单当作弱基线；它在某些任务和经验 d' 指标上可以非常强。
-2. EIG+d' 的价值不在于“全面替代 CRLB”，而在于提供一种可以显式注入任务目标的分层设计路线。
-3. 当前三维 quick 验证已经显示 `EIG_plus_dprime` 在 ROI RMSE 上具有优势，但经验 d' 仍需要更严格的重建模型和统计检验来确认。
-4. 后续三维实验应像二维实验 B/D 那样加入更明确的“非预设 ROI”或“先验失配”任务，并分别报告各子任务结果，而不是只看场景平均或单一综合指标。
+如果 EIG+d' 在 ROI RMSE 或经验 d' 上优于规则基线和 CRLB_Aopt，则说明任务精筛选出的架构在真实泊松重建条件下仍更贴近局部检测需求；如果全局 RMSE 与 CRLB_Aopt 接近而 ROI/d' 更优，则更符合本研究的核心论点：任务驱动设计不一定追求全局平均方差最小，而是追求目标任务更可探测。
 
 当前实验仍是 quick 级闭环验证，主要用于验证流程和相对趋势。最终论文级结果应提高重复次数、体素分辨率、MAP 迭代严格性，并加入统计显著性检验。

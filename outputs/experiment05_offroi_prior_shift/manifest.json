@@ -1,9 +1,9 @@
 {
-  "timestamp": "2026-05-29T23:34:50",
+  "timestamp": "2026-05-29T23:35:19",
   "python": "3.13.13",
   "astra_version": "2.4.1",
   "config": {
-    "name": "rect3d_poisson_mle_map_validation_quick",
+    "name": "rect3d_offroi_prior_shift_quick",
     "detector_radius": "1.5",
     "detector_height": "1.6",
     "volume_side_xy": "1.0",
@@ -23,7 +23,7 @@
     "poisson_scale": "1.0",
     "sirt_iterations": "25",
     "seed": "20260523",
-    "output_dir": "D:\\Astra-toolbox\\astra-toolbox-2.4.1-python313-win-x64\\astra-2.4.1\\rect3d_static_ct_repro\\outputs\\experiment04_poisson_mle_map_validation",
+    "output_dir": "D:\\Astra-toolbox\\astra-toolbox-2.4.1-python313-win-x64\\astra-2.4.1\\rect3d_static_ct_repro\\outputs\\experiment05_offroi_prior_shift",
     "use_cuda_3d": "True",
     "eig_candidate_count": "240",
     "eig_top_fraction": "0.1",
@@ -34,8 +34,8 @@
     "dprime_channel_count": "12",
     "dprime_regularization_beta": "25000.0",
     "crlb_probe_rank": "8",
-    "validation_replicates": "5",
+    "validation_replicates": "6",
     "map_prior_strength": "0.18"
   },
-  "metric_rows": 16
+  "metric_rows": 24
 }
